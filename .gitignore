@@ -8,3 +8,4 @@ runs/
 .DS_Store
 eval_runs/
 evals/results/
+.claude/

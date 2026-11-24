@@ -34,24 +34,25 @@ _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class LLM:
-    def __init__(self, ws: Workspace, model: str = DEFAULT_MODEL, provider: str = PROVIDER):
+    def __init__(self, ws: Workspace, model: str | None = None, provider: str | None = None,
+                 api_key: str | None = None, base_url: str | None = None):
+        provider = (provider or PROVIDER).lower()
+        model = model or (os.environ.get("RAPIDS_ANALYST_MODEL") if provider == PROVIDER else None) \
+            or DEFAULT_MODELS.get(provider, "")
         self.ws, self.model, self.provider = ws, model, provider
         if provider in ("nvidia", "openai"):
             from openai import OpenAI  # lazy import so offline tests need no SDK/key
 
-            if provider == "nvidia":
-                key = os.environ.get("NVIDIA_API_KEY")
-                base = os.environ.get("RAPIDS_ANALYST_BASE_URL", NVIDIA_BASE_URL)
-            else:
-                key = os.environ.get("OPENAI_API_KEY")
-                base = os.environ.get("RAPIDS_ANALYST_BASE_URL")
+            env_key = "NVIDIA_API_KEY" if provider == "nvidia" else "OPENAI_API_KEY"
+            key = api_key or os.environ.get(env_key)
+            base = base_url or os.environ.get("RAPIDS_ANALYST_BASE_URL") or (NVIDIA_BASE_URL if provider == "nvidia" else None)
             if not key:
-                raise RuntimeError(f"API key env var not set for provider '{provider}'")
+                raise RuntimeError(f"No API key for provider '{provider}' (set {env_key} or pass one in)")
             self.client = OpenAI(api_key=key, base_url=base, timeout=300)
         elif provider == "anthropic":
             import anthropic
 
-            self.client = anthropic.Anthropic()
+            self.client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
         else:
             raise ValueError(f"Unknown provider: {provider}")
 

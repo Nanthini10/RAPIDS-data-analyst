@@ -17,11 +17,13 @@ dependencies = [
 [project.optional-dependencies]
 # RAPIDS is installed via conda/pip with a CUDA suffix; see README.
 anthropic = ["anthropic>=0.40"]
+dashboard = ["streamlit>=1.37"]
 dev = ["pytest>=8", "pandas", "pyarrow", "matplotlib"]
 
 [project.scripts]
 rapids-analyst = "rapids_analyst.cli:main"
 rapids-status = "rapids_analyst.progress:main"
+rapids-dashboard = "rapids_analyst.dashboard:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

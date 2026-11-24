@@ -54,12 +54,13 @@ def load_trace(run_dir: Path) -> list[dict]:
     return [json.loads(l) for l in f.read_text().splitlines() if l.strip()] if f.exists() else []
 
 
-def status_table(run_dir: Path) -> str:
+def summarise(run_dir: Path) -> dict:
+    """Structured run state shared by the CLI table and the dashboard."""
     recs = load_trace(run_dir)
-    if not recs:
-        return f"No trace yet in {run_dir}"
-    t0 = recs[0]["t"]
     rows = {s: {"state": "pending", "attempts": 0, "tok": 0, "secs": 0.0, "last": ""} for s in STAGES}
+    if not recs:
+        return {"rows": rows, "done": False, "failed": False, "elapsed": 0.0, "tokens": 0, "started": False}
+    t0 = recs[0]["t"]
     for r in recs:
         a = r.get("agent")
         if a not in rows:
@@ -79,12 +80,31 @@ def status_table(run_dir: Path) -> str:
             row["last"] = ""
         elif r["event"] == "agent_failed":
             row["state"] = "FAILED"
-    icon = {"pending": "·", "running": "▶", "done": "✓", "FAILED": "✗"}
     done = any(r["event"] == "run_done" for r in recs)
-    end = recs[-1]["t"] if done else time.time()
-    out = [f"Run {run_dir.name}   elapsed {_ts(end - t0)}   {'COMPLETE' if done else 'in progress'}",
+    failed = any(r["event"] == "agent_failed" for r in recs)
+    end = recs[-1]["t"] if (done or failed) else time.time()
+    return {"rows": rows, "done": done, "failed": failed, "elapsed": end - t0,
+            "tokens": sum(r["tok"] for r in rows.values()), "started": True}
+
+
+def recent_lines(run_dir: Path, n: int = 30) -> list[str]:
+    recs = load_trace(run_dir)
+    if not recs:
+        return []
+    t0 = recs[0]["t"]
+    lines = [describe(r, r["t"] - t0) for r in recs]
+    return [l for l in lines if l][-n:]
+
+
+def status_table(run_dir: Path) -> str:
+    sm = summarise(run_dir)
+    if not sm["started"]:
+        return f"No trace yet in {run_dir}"
+    icon = {"pending": "·", "running": "▶", "done": "✓", "FAILED": "✗"}
+    state = "COMPLETE" if sm["done"] else ("FAILED" if sm["failed"] else "in progress")
+    out = [f"Run {run_dir.name}   elapsed {_ts(sm['elapsed'])}   {state}",
            f"{'stage':<13}{'state':<9}{'tries':>6}{'tokens':>8}{'model s':>9}  last error"]
-    for s, r in rows.items():
+    for s, r in sm["rows"].items():
         st = r["state"]
         out.append(f"{icon[st]} {s:<11}{st:<9}{r['attempts']:>6}{r['tok']:>8}{r['secs']:>9.0f}  {r['last']}")
     return "\n".join(out)

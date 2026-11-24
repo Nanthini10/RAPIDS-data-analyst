@@ -83,12 +83,15 @@ def merge_revisions(findings: list[dict], revised: list[dict], failed_ids: set[s
     return out
 
 
-def run_pipeline(dataset: Path, question: str, out_dir: Path, model: str | None = None) -> Workspace:
-    ws = Workspace.create(out_dir, dataset)
-    llm = LLM(ws, model) if model else LLM(ws)
+def run_pipeline(dataset: Path, question: str, out_dir: Path, model: str | None = None, *,
+                 ws: Workspace | None = None, provider: str | None = None,
+                 api_key: str | None = None, base_url: str | None = None) -> Workspace:
+    ws = ws or Workspace.create(out_dir, dataset)
+    llm = LLM(ws, model, provider, api_key, base_url)
     ledger: list[Path] = []
     ws.trace("run_start", question=question, dataset=dataset.name)
-    print(f"        run dir: {ws.root}\n        watch:   rapids-status {ws.root} --watch", file=__import__("sys").stderr, flush=True)
+    if ws.verbose:
+        print(f"        run dir: {ws.root}\n        watch:   rapids-status {ws.root} --watch", file=__import__("sys").stderr, flush=True)
 
     Planner(llm, ws).run(question, _preview(ws.dataset_path()))
     for cls in (Profiler, Cleaner):

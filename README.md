@@ -33,10 +33,25 @@ Each run writes `runs/<id>/` containing `report.md`, `analysis.py` (reproducible
 `findings.json`, `critique.json`, `figures/`, `fallbacks.json` (ops that left the GPU) and
 `trace.jsonl` (every LLM call and code execution).
 
+## Dashboard
+
+A Streamlit UI for uploading a CSV/Parquet file, entering an API key, watching the crew work
+(live stage tracker and log) and reading the report, findings, charts and downloads.
+
+```bash
+pip install -e ".[dashboard]"
+rapids-dashboard
+```
+
+The key is held in memory for the session and is never written to disk or the run trace. Past runs
+can be reopened from the sidebar. Because agents write Python that runs locally, use it with models
+and data you trust.
+
 ## Status
 
 - [x] v1 pipeline: Planner, Profiler, Cleaner, Analyst, Critic loop, Visualizer, Reporter
 - [x] Eval harness (`evals/`): synthetic churn data with planted ground truth, scoring, GPU-vs-pandas benchmark
+- [x] Streamlit dashboard (upload, API key, live progress, report viewer)
 - [ ] v2: Modeler agent (cuML), cuGraph, `dask_cudf` for out-of-core data
 
 ## Evals
