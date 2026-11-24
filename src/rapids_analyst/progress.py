@@ -83,9 +83,10 @@ def status_table(run_dir: Path) -> str:
     done = any(r["event"] == "run_done" for r in recs)
     end = recs[-1]["t"] if done else time.time()
     out = [f"Run {run_dir.name}   elapsed {_ts(end - t0)}   {'COMPLETE' if done else 'in progress'}",
-           f"{"stage":<13}{"state":<9}{'tries':>6}{'tokens':>8}{'model s':>9}  last error"]
+           f"{'stage':<13}{'state':<9}{'tries':>6}{'tokens':>8}{'model s':>9}  last error"]
     for s, r in rows.items():
-        out.append(f"{icon[r["state"]]} {s:<11}{r["state"]:<9}{r['attempts']:>6}{r['tok']:>8}{r['secs']:>9.0f}  {r['last']}")
+        st = r["state"]
+        out.append(f"{icon[st]} {s:<11}{st:<9}{r['attempts']:>6}{r['tok']:>8}{r['secs']:>9.0f}  {r['last']}")
     return "\n".join(out)
 
 
