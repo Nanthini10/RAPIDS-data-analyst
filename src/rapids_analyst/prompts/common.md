@@ -8,4 +8,5 @@ Rules:
 - Use `cupy` for array math and `cuml` for ML only when available (`try/except ImportError`, falling back to numpy/sklearn).
 - All paths are relative to `WS`. Write outputs exactly where the task says.
 - JSON you write must be valid: convert numpy/cudf scalars with `float()`/`int()`.
+- `scipy` and `numpy` are installed (use scipy.stats for tests).
 - Never print large frames. Never fabricate numbers: every value you report must be computed in the script.

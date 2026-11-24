@@ -38,7 +38,7 @@ def test_executor_reports_errors(tmp_path):
 
 
 def test_critic_loop_helpers():
-    findings = [{"id": "f1", "status": "pending"}, {"id": "f2", "status": "pending"}]
+    findings = [{"id": "f1", "status": "pending", "kind": "descriptive"}, {"id": "f2", "status": "pending", "kind": "descriptive"}]
     crit = [Critique(id="f1", verdict="pass", reason="ok"), Critique(id="f2", verdict="fail", reason="n too small")]
     failed = apply_critique(findings, crit)
     assert findings[0]["status"] == "verified"
@@ -92,3 +92,36 @@ def test_analyst_rejects_too_many_findings(tmp_path):
     assert Analyst(None, ws, []).validate() is None
     ws.write_json("findings.json", [f(1), f(1)])
     assert "unique" in Analyst(None, ws, []).validate()
+
+
+def test_stat_gate_rules():
+    from rapids_analyst.orchestrator import stat_gate
+
+    eff = {"kind": "effect"}
+    assert stat_gate({"kind": "descriptive"}, Critique(id="a", verdict="pass", reason="")) is None
+    assert stat_gate(eff, Critique(id="a", verdict="pass", reason="", p_value=0.001, min_group_n=500)) is None
+    assert "p=0.4" in stat_gate(eff, Critique(id="a", verdict="pass", reason="", p_value=0.4, min_group_n=500))
+    assert "no significance" in stat_gate(eff, Critique(id="a", verdict="pass", reason=""))
+    assert "n=12" in stat_gate(eff, Critique(id="a", verdict="pass", reason="", p_value=0.001, min_group_n=12))
+    null = {"kind": "null"}
+    assert stat_gate(null, Critique(id="a", verdict="pass", reason="", p_value=0.36, min_group_n=900)) is None
+    assert "no effect" in stat_gate(null, Critique(id="a", verdict="pass", reason="", p_value=0.001, min_group_n=900))
+
+
+def test_apply_critique_enforces_gate_even_when_critic_passes():
+    findings = [{"id": "r", "status": "pending", "kind": "effect"}]
+    crit = [Critique(id="r", verdict="pass", reason="arithmetic ok", p_value=0.4, min_group_n=428)]
+    failed = apply_critique(findings, crit)
+    assert findings[0]["status"] == "pending" and "reframe" in failed[0]["critic_reason"]
+
+
+def test_critic_requires_p_values(tmp_path):
+    from rapids_analyst.agents import Critic
+
+    ws = _ws(tmp_path)
+    ws.write_json("findings.json", [{"id": "a", "kind": "effect"}, {"id": "b", "kind": "descriptive"}])
+    ws.write_json("critique.json", [{"id": "a", "verdict": "pass", "reason": ""}, {"id": "b", "verdict": "pass", "reason": ""}])
+    assert "p_value" in Critic(None, ws, []).validate()
+    ws.write_json("critique.json", [{"id": "a", "verdict": "pass", "reason": "", "p_value": 0.01, "min_group_n": 50},
+                                    {"id": "b", "verdict": "pass", "reason": ""}])
+    assert Critic(None, ws, []).validate() is None

@@ -10,7 +10,7 @@ Planner → Profiler → Cleaner → Analyst ⇄ Critic → Visualizer → Repor
 Agents write and execute Python against cuDF, self-correct from tracebacks, and pass
 state through files in a per-run workspace. A **Critic** independently recomputes every
 number and sends failed findings back to the Analyst (max 2 rounds); the **Reporter** may
-cite only verified findings. See [docs/WORKFLOW.md](docs/WORKFLOW.md) for the full design.
+cite only verified findings. A finding is verified only if the Critic's independent recomputation agrees **and** it clears a deterministic statistical gate computed by the Critic (omnibus p-value and smallest-group size: effect claims need p ≤ 0.05, null claims need p > 0.05, groups need n ≥ 30). See [docs/WORKFLOW.md](docs/WORKFLOW.md) for the full design.
 
 ## Quick start
 
@@ -55,7 +55,7 @@ python -m evals.bench_speedup --rows 10000000   # needs RAPIDS / a GPU
 |---|---|
 | `insight_recall` | Share of true drivers (contract, tenure) named by a verified finding |
 | `trap_precision` | 1 minus the share of null columns (gender, region) wrongly reported as drivers |
-| `numeric_accuracy` | Share of verified findings whose value matches a reference metric (2% tolerance) |
+| `numeric_accuracy` | Share of verified findings whose quoted `rate (n=size)` pairs all exist in the pandas reference table (n exact, rate within 0.002); findings with no such pair are checked by `value` against named reference scalars |
 | `verified_fraction` | Share of findings that survived the Critic |
 | speedup | cuDF vs pandas wall time on groupby, sort, describe, corr, merge |
 

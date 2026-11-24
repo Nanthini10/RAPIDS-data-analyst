@@ -111,6 +111,12 @@ class Critic(CodeAgent):
         want = {f["id"] for f in self.ws.read_json("findings.json")}
         if want - have:
             return f"critique.json is missing findings: {sorted(want - have)}"
+        kinds = {f["id"]: f.get("kind", "effect") for f in self.ws.read_json("findings.json")}
+        lacking = [c.id for c in crit if kinds.get(c.id) != "descriptive" and c.p_value is None]
+        if lacking:
+            return (f"p_value (and min_group_n) are required for every non-descriptive finding; missing for {lacking}. "
+                    "Compute a chi-square test for rate comparisons across groups, Welch t-test for mean "
+                    "comparisons, or a Pearson correlation test.")
 
     def task(self, ctx):
         return (

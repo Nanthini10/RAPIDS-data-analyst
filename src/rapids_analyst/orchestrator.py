@@ -9,6 +9,8 @@ from .schemas import Critique
 from .workspace import Workspace
 
 MAX_REVISIONS = 2
+ALPHA = 0.05
+MIN_GROUP_N = 30
 
 
 class PipelineError(RuntimeError):
@@ -26,17 +28,45 @@ def _preview(path: Path, n: int = 6) -> str:
     return pd.read_parquet(path).head(n).to_csv(index=False)
 
 
+def stat_gate(finding: dict, c: Critique) -> str | None:
+    """Deterministic statistical rule, applied in code so it cannot be talked out of by the LLM.
+
+    Returns a failure reason, or None if the finding clears the gate.
+    """
+    kind = finding.get("kind", "effect")
+    if kind == "descriptive":
+        return None
+    if c.min_group_n is not None and c.min_group_n < MIN_GROUP_N:
+        return f"smallest group has n={c.min_group_n} (< {MIN_GROUP_N}); too small to support a comparison"
+    if c.p_value is None:
+        return "no significance test was computed for a comparative claim"
+    if kind == "effect" and c.p_value > ALPHA:
+        return (f"claims an effect but the omnibus test gives p={c.p_value:.3g} (> {ALPHA}). "
+                "Either reframe it as a null result (kind='null'; say no reliable difference was found) or drop it. "
+                "Do not cherry-pick the best and worst group.")
+    if kind == "null" and c.p_value <= ALPHA:
+        return f"claims no effect but the test gives p={c.p_value:.3g} (<= {ALPHA}); an effect is present"
+    return None
+
+
 def apply_critique(findings: list[dict], critiques: list[Critique]) -> list[dict]:
-    """Mark passing findings verified; return failed findings with the Critic's reason."""
+    """Mark findings verified only if the Critic passes them AND they clear the statistical gate."""
     by_id = {c.id: c for c in critiques}
     failed = []
     for f in findings:
         c = by_id.get(f["id"])
-        if c and c.verdict == "pass":
+        reason = None
+        if c is None:
+            reason = "not audited"
+        elif c.verdict != "pass":
+            reason = c.reason
+        else:
+            reason = stat_gate(f, c)
+        if reason is None:
             f["status"] = "verified"
         else:
             f["status"] = "pending"
-            failed.append({"finding": f, "critic_reason": c.reason if c else "not audited"})
+            failed.append({"finding": f, "critic_reason": reason})
     return failed
 
 

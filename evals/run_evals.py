@@ -11,7 +11,6 @@ import json
 import statistics
 from pathlib import Path
 
-from .reference import reference_metrics
 from .score import score_run
 from .synth import make_churn
 
@@ -28,7 +27,7 @@ def run_one(seed: int, n: int, out: Path, model: str | None) -> dict:
     csv = data_dir / f"churn_seed{seed}.csv"
     raw.to_csv(csv, index=False)
     ws = run_pipeline(csv, QUESTION, out / "runs", model)
-    return {"seed": seed, "run_dir": str(ws.root), **score_run(ws.root, reference_metrics(raw))}
+    return {"seed": seed, "run_dir": str(ws.root), **score_run(ws.root, raw)}
 
 
 def main() -> int:
@@ -42,7 +41,7 @@ def main() -> int:
     args = p.parse_args()
 
     if args.score_only:
-        res = [{"seed": args.seed, **score_run(args.score_only, reference_metrics(make_churn(args.n, args.seed)))}]
+        res = [{"seed": args.seed, **score_run(args.score_only, make_churn(args.n, args.seed))}]
     else:
         res = [run_one(s, args.n, args.out, args.model) for s in args.seeds]
 
