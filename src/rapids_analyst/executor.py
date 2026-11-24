@@ -1,6 +1,6 @@
 """Run agent-generated Python in a subprocess with a timeout.
 
-The prelude gives generated code `xdf` (cuDF if available, else pandas), `GPU`, and `WS`
+The prelude gives generated code `xdf`, `to_pd` (cuDF if available, else pandas), `GPU`, and `WS`
 (the workspace dir). Falling back to pandas is logged so we can report RAPIDS coverage.
 """
 from __future__ import annotations
@@ -22,6 +22,11 @@ except Exception:  # no GPU / RAPIDS not installed
     import pandas as xdf
     GPU = False
     open(os.path.join(WS, "_no_gpu"), "w").close()
+
+
+def to_pd(x):
+    """cuDF -> pandas; no-op if already pandas/numpy. Use instead of calling .to_pandas() directly."""
+    return x.to_pandas() if hasattr(x, "to_pandas") else x
 '''
 
 

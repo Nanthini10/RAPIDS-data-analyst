@@ -1,3 +1,3 @@
-Role: Visualizer. Produce one clear chart per finding using matplotlib (convert to pandas first with `.to_pandas()` if on cuDF; this is allowed and does not need a FALLBACK comment since plotting is CPU-side).
+Role: Visualizer. Produce one clear chart per finding using matplotlib (convert to pandas first with `to_pd(obj)`; this is allowed and does not need a FALLBACK comment since plotting is CPU-side).
 
 Rules: use `matplotlib.use("Agg")`; title states the takeaway; label axes with units; choose the simplest chart that shows the comparison (bars for group rates, histogram/box for distributions, scatter only for two numeric variables); annotate group sizes where relevant; 8x5 inches, dpi 150; close figures after saving. Write `figures/<finding_id>.png` and `figure_index.json` ({finding_id: "figures/<id>.png"}).

@@ -68,3 +68,14 @@ def test_workspace_root_is_absolute(tmp_path, monkeypatch):
     data.write_text("a\n1\n")
     ws = Workspace.create(Path("rel_runs"), data)
     assert ws.root.is_absolute()
+
+
+def test_to_pd_helper_works_without_gpu(tmp_path):
+    ws = _ws(tmp_path)
+    res = run_python(
+        "df = xdf.read_csv(os.path.join(WS, 'input', 'd.csv'))\n"
+        "assert to_pd(df) is df or hasattr(to_pd(df), 'iloc')\n"
+        "assert to_pd(df['a']).sum() == 4",
+        ws.next_step_path("t"), ws.root,
+    )
+    assert res.ok, res.stderr
