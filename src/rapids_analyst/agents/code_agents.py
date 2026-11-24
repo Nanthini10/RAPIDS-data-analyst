@@ -6,6 +6,7 @@ from pydantic import TypeAdapter, ValidationError
 from ..schemas import Critique, Finding
 from .base import CodeAgent
 
+MAX_FINDINGS = 10
 _FINDINGS = TypeAdapter(list[Finding])
 _CRITIQUES = TypeAdapter(list[Critique])
 
@@ -51,9 +52,16 @@ class Analyst(CodeAgent):
 
     def validate(self):
         try:
-            _FINDINGS.validate_python(self.ws.read_json(self.output_file))
+            found = _FINDINGS.validate_python(self.ws.read_json(self.output_file))
         except (ValidationError, ValueError) as e:
             return str(e)[:800]
+        if len(found) > MAX_FINDINGS:
+            return (f"{len(found)} findings written; the limit is {MAX_FINDINGS}. Merge per-group findings: "
+                    "report ONE headline finding per hypothesis (e.g. the gap between best and worst group) "
+                    "and keep the group breakdown inside its evidence_code.")
+        ids = [f.id for f in found]
+        if len(ids) != len(set(ids)):
+            return "finding ids must be unique"
 
     def task(self, ctx):
         t = (
@@ -69,7 +77,7 @@ class Analyst(CodeAgent):
                 f"Write the corrected list to {self.output_file}."
             )
         else:
-            t += f"Write 3-8 findings to {self.output_file}."
+            t += f"Write 4-8 findings (never more than {MAX_FINDINGS}) to {self.output_file}."
         return t
 
 
@@ -107,6 +115,8 @@ class Critic(CodeAgent):
     def task(self, ctx):
         return (
             f"Plan:\n{self.dump(self.ws.read_json('plan.json'), 2000)}\n"
-            f"Findings to audit:\n{self.dump(self.ws.read_json('findings.json'))}\n\n"
-            "Write critique.json to WS."
+            f"Findings to audit (id, claim, metric, value, n, and the Analyst's evidence_code):\n"
+            f"{self.dump(self.ws.read_json('findings.json'), 12000)}\n\n"
+            "In your script, load the findings yourself with json.load(open(os.path.join(WS, 'findings.json'))); "
+            "do not assume any variable holds them. Write critique.json to WS."
         )

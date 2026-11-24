@@ -79,3 +79,16 @@ def test_to_pd_helper_works_without_gpu(tmp_path):
         ws.next_step_path("t"), ws.root,
     )
     assert res.ok, res.stderr
+
+
+def test_analyst_rejects_too_many_findings(tmp_path):
+    from rapids_analyst.agents import Analyst
+
+    ws = _ws(tmp_path)
+    f = lambda i: {"id": f"f{i}", "claim": "c", "evidence_code": "x", "metric": "m", "value": 1.0, "n": 50}
+    ws.write_json("findings.json", [f(i) for i in range(11)])
+    assert "limit" in Analyst(None, ws, []).validate()
+    ws.write_json("findings.json", [f(i) for i in range(5)])
+    assert Analyst(None, ws, []).validate() is None
+    ws.write_json("findings.json", [f(1), f(1)])
+    assert "unique" in Analyst(None, ws, []).validate()

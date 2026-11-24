@@ -43,6 +43,8 @@ class CodeAgent:
         system = load_prompt("common") + "\n\n" + load_prompt(self.name)
         error = ""
         for attempt in range(1, self.max_attempts + 1):
+            for f in self.required_outputs():  # stale files from a failed attempt must not satisfy validation
+                self.ws.path(f).unlink(missing_ok=True)
             user = self.task(ctx)
             if error:
                 user += f"\n\n## Previous attempt failed\n{error}\nFix the problem and return the full corrected script."
