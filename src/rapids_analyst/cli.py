@@ -12,7 +12,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("dataset", type=Path, help="CSV or Parquet file")
     p.add_argument("question", help="Question to answer, e.g. 'What drives churn?'")
     p.add_argument("--out", type=Path, default=Path("runs"), help="Directory for run workspaces")
-    p.add_argument("--model", default=None, help="Claude model id (default: $RAPIDS_ANALYST_MODEL)")
+    p.add_argument("--model", default=None, help="Model id (default: $RAPIDS_ANALYST_MODEL or provider default)")
     args = p.parse_args(argv)
 
     if not args.dataset.exists():

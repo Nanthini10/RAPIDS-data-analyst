@@ -5,16 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rapids-data-analyst"
 version = "0.1.0"
-description = "Multi-agent data analyst crew powered by RAPIDS (cuDF) and Claude"
+description = "Multi-agent data analyst crew powered by RAPIDS (cuDF) and NVIDIA NIM / OpenAI-compatible LLMs"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "anthropic>=0.40",
+  "openai>=1.40",
   "pydantic>=2.6",
 ]
 
 [project.optional-dependencies]
 # RAPIDS is installed via conda/pip with a CUDA suffix; see README.
+anthropic = ["anthropic>=0.40"]
 dev = ["pytest>=8", "pandas", "pyarrow", "matplotlib"]
 
 [project.scripts]

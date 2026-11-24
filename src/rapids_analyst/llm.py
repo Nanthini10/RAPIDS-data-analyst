@@ -1,4 +1,12 @@
-"""Thin Claude client wrapper: text in, text out, with tracing and JSON/code extraction."""
+"""Thin LLM wrapper: text in, text out, with tracing and JSON/code extraction.
+
+Providers (env RAPIDS_ANALYST_PROVIDER):
+  nvidia    (default) NVIDIA NIM / build.nvidia.com via the OpenAI-compatible API. Key: NVIDIA_API_KEY
+  openai    any OpenAI-compatible endpoint. Set OPENAI_API_KEY and RAPIDS_ANALYST_BASE_URL
+  anthropic Claude. Key: ANTHROPIC_API_KEY   (pip install anthropic)
+
+Model: RAPIDS_ANALYST_MODEL or --model.
+"""
 from __future__ import annotations
 
 import json
@@ -8,32 +16,59 @@ from typing import Any
 
 from .workspace import Workspace
 
-DEFAULT_MODEL = os.environ.get("RAPIDS_ANALYST_MODEL", "claude-sonnet-5-5")
+PROVIDER = os.environ.get("RAPIDS_ANALYST_PROVIDER", "nvidia").lower()
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+DEFAULT_MODELS = {
+    "nvidia": "nvidia/nemotron-3.5-super-vl-120b-a12b",  # confirm the exact id on build.nvidia.com
+    "openai": "gpt-4o",
+    "anthropic": "claude-sonnet-5-5",
+}
+DEFAULT_MODEL = os.environ.get("RAPIDS_ANALYST_MODEL", DEFAULT_MODELS.get(PROVIDER, ""))
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class LLM:
-    def __init__(self, ws: Workspace, model: str = DEFAULT_MODEL):
-        import anthropic  # imported lazily so tests can run without the SDK configured
+    def __init__(self, ws: Workspace, model: str = DEFAULT_MODEL, provider: str = PROVIDER):
+        self.ws, self.model, self.provider = ws, model, provider
+        if provider in ("nvidia", "openai"):
+            from openai import OpenAI  # lazy import so offline tests need no SDK/key
 
-        self.client = anthropic.Anthropic()
-        self.model = model
-        self.ws = ws
+            if provider == "nvidia":
+                key = os.environ.get("NVIDIA_API_KEY")
+                base = os.environ.get("RAPIDS_ANALYST_BASE_URL", NVIDIA_BASE_URL)
+            else:
+                key = os.environ.get("OPENAI_API_KEY")
+                base = os.environ.get("RAPIDS_ANALYST_BASE_URL")
+            if not key:
+                raise RuntimeError(f"API key env var not set for provider '{provider}'")
+            self.client = OpenAI(api_key=key, base_url=base, timeout=300)
+        elif provider == "anthropic":
+            import anthropic
+
+            self.client = anthropic.Anthropic()
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
 
     def complete(self, agent: str, system: str, user: str, max_tokens: int = 4096) -> str:
-        resp = self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        text = "".join(b.text for b in resp.content if b.type == "text")
-        self.ws.trace(
-            "llm_call",
-            agent=agent,
-            model=self.model,
-            input_tokens=resp.usage.input_tokens,
-            output_tokens=resp.usage.output_tokens,
-        )
+        if self.provider == "anthropic":
+            resp = self.client.messages.create(
+                model=self.model, max_tokens=max_tokens, system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+            text = "".join(b.text for b in resp.content if b.type == "text")
+            tin, tout = resp.usage.input_tokens, resp.usage.output_tokens
+        else:
+            resp = self.client.chat.completions.create(
+                model=self.model, max_tokens=max_tokens, temperature=0.2,
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            )
+            text = resp.choices[0].message.content or ""
+            tin = getattr(resp.usage, "prompt_tokens", None)
+            tout = getattr(resp.usage, "completion_tokens", None)
+        text = _THINK_RE.sub("", text).strip()  # drop reasoning traces if the model emits them
+        self.ws.trace("llm_call", agent=agent, provider=self.provider, model=self.model,
+                      input_tokens=tin, output_tokens=tout)
         return text
 
 

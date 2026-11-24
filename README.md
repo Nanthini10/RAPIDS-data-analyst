@@ -1,7 +1,7 @@
 # RAPIDS Data Analyst
 
 A multi-agent data-analyst crew that answers a business question about a tabular dataset
-using **GPU dataframes (RAPIDS cuDF)** instead of SQL, with Claude as the reasoning engine.
+using **GPU dataframes (RAPIDS cuDF)** instead of SQL, with an LLM (default: NVIDIA Nemotron via build.nvidia.com) as the reasoning engine.
 
 ```
 Planner → Profiler → Cleaner → Analyst ⇄ Critic → Visualizer → Reporter
@@ -15,7 +15,8 @@ cite only verified findings. See [docs/WORKFLOW.md](docs/WORKFLOW.md) for the fu
 ## Quick start
 
 ```bash
-export ANTHROPIC_API_KEY=...
+export NVIDIA_API_KEY=...         # from build.nvidia.com
+# optional: RAPIDS_ANALYST_MODEL, or RAPIDS_ANALYST_PROVIDER=openai|anthropic
 pip install -e ".[dev]"            # CPU: agents fall back to pandas and log it
 rapids-analyst data/telco.csv "What drives customer churn?"
 ```
@@ -24,7 +25,7 @@ On a GPU, use the RAPIDS image:
 
 ```bash
 docker build -t rapids-analyst .
-docker run --gpus all -e ANTHROPIC_API_KEY -v $PWD:/work -w /work rapids-analyst \
+docker run --gpus all -e NVIDIA_API_KEY -v $PWD:/work -w /work rapids-analyst \
   data/telco.csv "What drives customer churn?"
 ```
 
@@ -46,7 +47,7 @@ deliberately dirty (numeric strings, blanks, duplicates, nulls). Ground truth co
 pandas reference ([evals/reference.py](evals/reference.py)), so there is nothing to download.
 
 ```bash
-python -m evals.run_evals --seeds 0 1 2      # needs ANTHROPIC_API_KEY
+python -m evals.run_evals --seeds 0 1 2      # needs NVIDIA_API_KEY
 python -m evals.bench_speedup --rows 10000000   # needs RAPIDS / a GPU
 ```
 
