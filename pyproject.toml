@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rapids-data-analyst"
+version = "0.1.0"
+description = "Multi-agent data analyst crew powered by RAPIDS (cuDF) and Claude"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "anthropic>=0.40",
+  "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+# RAPIDS is installed via conda/pip with a CUDA suffix; see README.
+dev = ["pytest>=8", "pandas", "pyarrow", "matplotlib"]
+
+[project.scripts]
+rapids-analyst = "rapids_analyst.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rapids_analyst = ["prompts/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

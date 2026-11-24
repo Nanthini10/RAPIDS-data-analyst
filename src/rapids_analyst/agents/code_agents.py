@@ -1,0 +1,112 @@
+"""Code-writing agents: Profiler, Cleaner, Analyst, Visualizer, Critic."""
+from __future__ import annotations
+
+from pydantic import TypeAdapter, ValidationError
+
+from ..schemas import Critique, Finding
+from .base import CodeAgent
+
+_FINDINGS = TypeAdapter(list[Finding])
+_CRITIQUES = TypeAdapter(list[Critique])
+
+
+class Profiler(CodeAgent):
+    name = "profiler"
+
+    def required_outputs(self):
+        return ["profile.json"]
+
+    def task(self, ctx):
+        return (
+            f"Dataset file (relative to WS): {self.dataset_rel()}\n"
+            f"Plan:\n{self.dump(self.ws.read_json('plan.json'))}\n\n"
+            "Write profile.json to WS."
+        )
+
+
+class Cleaner(CodeAgent):
+    name = "cleaner"
+
+    def required_outputs(self):
+        return ["clean.parquet", "transform_log.json"]
+
+    def task(self, ctx):
+        return (
+            f"Dataset file: {self.dataset_rel()}\n"
+            f"Plan:\n{self.dump(self.ws.read_json('plan.json'))}\n"
+            f"Profile:\n{self.dump(self.ws.read_json('profile.json'))}\n\n"
+            "Write clean.parquet and transform_log.json to WS."
+        )
+
+
+class Analyst(CodeAgent):
+    name = "analyst"
+
+    def __init__(self, *a, output_file: str = "findings.json", **kw):
+        super().__init__(*a, **kw)
+        self.output_file = output_file
+
+    def required_outputs(self):
+        return [self.output_file]
+
+    def validate(self):
+        try:
+            _FINDINGS.validate_python(self.ws.read_json(self.output_file))
+        except (ValidationError, ValueError) as e:
+            return str(e)[:800]
+
+    def task(self, ctx):
+        t = (
+            f"Plan:\n{self.dump(self.ws.read_json('plan.json'))}\n"
+            f"Profile:\n{self.dump(self.ws.read_json('profile.json'), 3000)}\n"
+            f"Transform log:\n{self.dump(self.ws.read_json('transform_log.json'), 2000)}\n\n"
+        )
+        if ctx.get("revise"):
+            t += (
+                "REVISION ROUND. The Critic rejected these findings. Produce corrected replacements "
+                "(same ids) or drop them if they cannot be supported:\n"
+                f"{self.dump(ctx['revise'])}\n\n"
+                f"Write the corrected list to {self.output_file}."
+            )
+        else:
+            t += f"Write 3-8 findings to {self.output_file}."
+        return t
+
+
+class Visualizer(CodeAgent):
+    name = "visualizer"
+
+    def required_outputs(self):
+        return ["figure_index.json"]
+
+    def task(self, ctx):
+        findings = [f for f in self.ws.read_json("findings.json") if f.get("status") != "unverified"]
+        return (
+            f"Findings to chart:\n{self.dump(findings)}\n\n"
+            "Write one PNG per finding to WS/figures/<finding_id>.png and figure_index.json "
+            "mapping finding id -> relative png path."
+        )
+
+
+class Critic(CodeAgent):
+    name = "critic"
+
+    def required_outputs(self):
+        return ["critique.json"]
+
+    def validate(self):
+        try:
+            crit = _CRITIQUES.validate_python(self.ws.read_json("critique.json"))
+        except (ValidationError, ValueError) as e:
+            return str(e)[:800]
+        have = {c.id for c in crit}
+        want = {f["id"] for f in self.ws.read_json("findings.json")}
+        if want - have:
+            return f"critique.json is missing findings: {sorted(want - have)}"
+
+    def task(self, ctx):
+        return (
+            f"Plan:\n{self.dump(self.ws.read_json('plan.json'), 2000)}\n"
+            f"Findings to audit:\n{self.dump(self.ws.read_json('findings.json'))}\n\n"
+            "Write critique.json to WS."
+        )
