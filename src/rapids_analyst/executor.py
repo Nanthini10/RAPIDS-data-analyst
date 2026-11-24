@@ -22,6 +22,13 @@ except Exception:  # no GPU / RAPIDS not installed
     import pandas as xdf
     GPU = False
     open(os.path.join(WS, "_no_gpu"), "w").close()
+    # CPU shim: code written for cuDF often calls cuDF-only methods. Make the common ones no-ops on pandas
+    # so the same script runs on both backends.
+    for _cls in (xdf.DataFrame, xdf.Series, xdf.Index):
+        if not hasattr(_cls, "to_pandas"):
+            _cls.to_pandas = lambda self, *a, **k: self
+        if not hasattr(_cls, "to_cupy"):
+            _cls.to_cupy = lambda self, *a, **k: self.to_numpy()
 
 
 def to_pd(x):

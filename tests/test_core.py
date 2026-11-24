@@ -125,3 +125,15 @@ def test_critic_requires_p_values(tmp_path):
     ws.write_json("critique.json", [{"id": "a", "verdict": "pass", "reason": "", "p_value": 0.01, "min_group_n": 50},
                                     {"id": "b", "verdict": "pass", "reason": ""}])
     assert Critic(None, ws, []).validate() is None
+
+
+def test_cpu_shim_makes_cudf_methods_work_on_pandas(tmp_path):
+    ws = _ws(tmp_path)
+    res = run_python(
+        "df = xdf.read_csv(os.path.join(WS, 'input', 'd.csv'))\n"
+        "g = df.groupby('a').agg({'b': ['mean', 'count']}).to_pandas()\n"   # cuDF idiom, direct call
+        "assert df['a'].to_pandas().sum() == 4 and len(df.to_cupy()) == 2\n"
+        "assert xdf.Index([1, 2]).to_pandas() is not None",
+        ws.next_step_path("t"), ws.root,
+    )
+    assert res.ok, res.stderr
