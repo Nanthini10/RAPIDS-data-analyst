@@ -28,3 +28,4 @@ rapids_analyst = ["prompts/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

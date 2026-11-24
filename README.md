@@ -35,8 +35,30 @@ Each run writes `runs/<id>/` containing `report.md`, `analysis.py` (reproducible
 ## Status
 
 - [x] v1 pipeline: Planner, Profiler, Cleaner, Analyst, Critic loop, Visualizer, Reporter
-- [ ] Eval harness (`evals/`): public datasets with reference answers, plus GPU-vs-pandas speedup
+- [x] Eval harness (`evals/`): synthetic churn data with planted ground truth, scoring, GPU-vs-pandas benchmark
 - [ ] v2: Modeler agent (cuML), cuGraph, `dask_cudf` for out-of-core data
+
+## Evals
+
+The eval dataset is **synthetic churn data with planted structure** ([evals/synth.py](evals/synth.py)):
+`contract` and `tenure` are true drivers, `gender` and `region` are null traps, and the data is
+deliberately dirty (numeric strings, blanks, duplicates, nulls). Ground truth comes from a plain
+pandas reference ([evals/reference.py](evals/reference.py)), so there is nothing to download.
+
+```bash
+python -m evals.run_evals --seeds 0 1 2      # needs ANTHROPIC_API_KEY
+python -m evals.bench_speedup --rows 10000000   # needs RAPIDS / a GPU
+```
+
+| Score | Meaning |
+|---|---|
+| `insight_recall` | Share of true drivers (contract, tenure) named by a verified finding |
+| `trap_precision` | 1 minus the share of null columns (gender, region) wrongly reported as drivers |
+| `numeric_accuracy` | Share of verified findings whose value matches a reference metric (2% tolerance) |
+| `verified_fraction` | Share of findings that survived the Critic |
+| speedup | cuDF vs pandas wall time on groupby, sort, describe, corr, merge |
+
+Results are written to `evals/results/` (git-ignored). Add your own measured numbers here once run.
 
 ## Tests
 

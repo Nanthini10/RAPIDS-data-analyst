@@ -6,3 +6,5 @@ runs/
 .env
 *.parquet
 .DS_Store
+eval_runs/
+evals/results/
