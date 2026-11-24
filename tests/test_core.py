@@ -46,3 +46,25 @@ def test_critic_loop_helpers():
     merged = merge_revisions(findings, [{"id": "f2", "status": "pending", "claim": "fixed"}], {"f2"})
     assert merged[1]["claim"] == "fixed"
     assert merge_revisions(findings, [], {"f2"}) == [findings[0]]
+
+
+def test_progress_status_table(tmp_path):
+    from rapids_analyst.progress import describe, status_table
+
+    ws = _ws(tmp_path)
+    ws.verbose = False
+    ws.trace("run_start", dataset="d.csv")
+    ws.trace("stage_start", agent="profiler")
+    ws.trace("llm_call", agent="profiler", output_tokens=900, seconds=12.0, finish="stop", empty=False)
+    ws.trace("exec", agent="profiler", attempt=1, ok=False, stderr="Traceback\nKeyError: 'x'")
+    table = status_table(ws.root)
+    assert "profiler" in table and "running" in table and "KeyError" in table
+    assert "EMPTY" in describe({"event": "llm_call", "agent": "a", "empty": True}, 5)
+
+
+def test_workspace_root_is_absolute(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    data = tmp_path / "d.csv"
+    data.write_text("a\n1\n")
+    ws = Workspace.create(Path("rel_runs"), data)
+    assert ws.root.is_absolute()

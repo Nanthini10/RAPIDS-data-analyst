@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from .orchestrator import PipelineError, run_pipeline
+from .progress import status_table
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -22,7 +23,10 @@ def main(argv: list[str] | None = None) -> int:
         ws = run_pipeline(args.dataset, args.question, args.out, args.model)
     except PipelineError as e:
         print(f"Pipeline failed: {e}", file=sys.stderr)
+        if e.run_dir:
+            print(status_table(e.run_dir), file=sys.stderr)
         return 1
+    print(status_table(ws.root))
     print(f"Done. Report: {ws.path('report.md')}")
     return 0
 

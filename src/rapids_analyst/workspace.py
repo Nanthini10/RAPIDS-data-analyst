@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -11,7 +12,9 @@ from typing import Any
 
 class Workspace:
     def __init__(self, root: Path):
-        self.root = root
+        self.root = root.resolve()  # absolute: scripts run with cwd=root
+        self.t0 = time.time()
+        self.verbose = True
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "input").mkdir(exist_ok=True)
         (self.root / "figures").mkdir(exist_ok=True)
@@ -54,6 +57,12 @@ class Workspace:
         rec = {"t": time.time(), "event": event, **fields}
         with open(self.path("trace.jsonl"), "a") as f:
             f.write(json.dumps(rec, default=str) + "\n")
+        if self.verbose:
+            from .progress import describe
+
+            line = describe(rec, time.time() - self.t0)
+            if line:
+                print(line, file=sys.stderr, flush=True)
 
     def next_step_path(self, agent: str) -> Path:
         self._step_counter += 1

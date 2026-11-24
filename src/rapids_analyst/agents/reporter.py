@@ -14,6 +14,7 @@ class Reporter:
         self.llm, self.ws = llm, ws
 
     def run(self) -> str:
+        self.ws.trace("stage_start", agent=self.name)
         findings = self.ws.read_json("findings.json")
         verified = [f for f in findings if f["status"] == "verified"]
         unverified = [f for f in findings if f["status"] == "unverified"]
@@ -30,4 +31,5 @@ class Reporter:
         )
         report = self.llm.complete(self.name, load_prompt("reporter"), user, max_tokens=6000)
         self.ws.path("report.md").write_text(report)
+        self.ws.trace("agent_done", agent=self.name, attempts=1)
         return report

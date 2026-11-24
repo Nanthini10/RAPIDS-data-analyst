@@ -20,6 +20,7 @@ dev = ["pytest>=8", "pandas", "pyarrow", "matplotlib"]
 
 [project.scripts]
 rapids-analyst = "rapids_analyst.cli:main"
+rapids-status = "rapids_analyst.progress:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

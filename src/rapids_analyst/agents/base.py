@@ -39,13 +39,20 @@ class CodeAgent:
     # -- main loop -----------------------------------------------------
     def run(self, ctx: dict | None = None) -> bool:
         ctx = ctx or {}
+        self.ws.trace("stage_start", agent=self.name)
         system = load_prompt("common") + "\n\n" + load_prompt(self.name)
         error = ""
         for attempt in range(1, self.max_attempts + 1):
             user = self.task(ctx)
             if error:
                 user += f"\n\n## Previous attempt failed\n{error}\nFix the problem and return the full corrected script."
-            code = extract_code(self.llm.complete(self.name, system, user, max_tokens=6000))
+            reply = self.llm.complete(self.name, system, user, max_tokens=6000)
+            if not reply.strip():
+                error = (f"The model returned no content (finish_reason={self.llm.last_finish}). "
+                         "Reply with ONE python code block only; do not think at length.")
+                self.ws.trace("exec", agent=self.name, attempt=attempt, ok=False, stderr=error, script="-")
+                continue
+            code = extract_code(reply)
             res = run_python(code, self.ws.next_step_path(self.name), self.ws.root, self.timeout)
             self.ws.trace(
                 "exec", agent=self.name, attempt=attempt, ok=res.ok,

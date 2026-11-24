@@ -12,7 +12,9 @@ MAX_REVISIONS = 2
 
 
 class PipelineError(RuntimeError):
-    pass
+    def __init__(self, msg: str, run_dir: Path | None = None):
+        super().__init__(msg)
+        self.run_dir = run_dir
 
 
 def _preview(path: Path, n: int = 6) -> str:
@@ -56,20 +58,21 @@ def run_pipeline(dataset: Path, question: str, out_dir: Path, model: str | None 
     llm = LLM(ws, model) if model else LLM(ws)
     ledger: list[Path] = []
     ws.trace("run_start", question=question, dataset=dataset.name)
+    print(f"        run dir: {ws.root}\n        watch:   rapids-status {ws.root} --watch", file=__import__("sys").stderr, flush=True)
 
     Planner(llm, ws).run(question, _preview(ws.dataset_path()))
     for cls in (Profiler, Cleaner):
         if not cls(llm, ws, ledger).run():
-            raise PipelineError(f"{cls.name} failed after retries; see {ws.path('trace.jsonl')}")
+            raise PipelineError(f"{cls.name} failed after retries; see {ws.path('trace.jsonl')}", ws.root)
 
     if not Analyst(llm, ws, ledger).run():
-        raise PipelineError("analyst failed after retries")
+        raise PipelineError("analyst failed after retries", ws.root)
     findings = ws.read_json("findings.json")
 
     for round_no in range(MAX_REVISIONS + 1):
         ws.write_json("findings.json", findings)
         if not Critic(llm, ws, ledger).run():
-            raise PipelineError("critic failed after retries")
+            raise PipelineError("critic failed after retries", ws.root)
         critiques = [Critique(**c) for c in ws.read_json("critique.json")]
         failed = apply_critique(findings, critiques)
         ws.trace("critic_round", round=round_no, failed=[x["finding"]["id"] for x in failed])

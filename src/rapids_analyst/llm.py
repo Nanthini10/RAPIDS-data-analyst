@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from typing import Any
 
 from .workspace import Workspace
@@ -24,6 +25,10 @@ DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-5-5",
 }
 DEFAULT_MODEL = os.environ.get("RAPIDS_ANALYST_MODEL", DEFAULT_MODELS.get(PROVIDER, ""))
+
+# Reasoning models can burn the whole token budget thinking. Default: thinking off.
+THINKING = os.environ.get("RAPIDS_ANALYST_THINKING", "0") == "1"
+MAX_TOKENS = int(os.environ.get("RAPIDS_ANALYST_MAX_TOKENS", "16000"))
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
@@ -51,6 +56,10 @@ class LLM:
             raise ValueError(f"Unknown provider: {provider}")
 
     def complete(self, agent: str, system: str, user: str, max_tokens: int = 4096) -> str:
+        max_tokens = max(max_tokens, MAX_TOKENS)
+        self.last_finish = None
+        self.ws.trace("llm_start", agent=agent)
+        t0 = time.time()
         if self.provider == "anthropic":
             resp = self.client.messages.create(
                 model=self.model, max_tokens=max_tokens, system=system,
@@ -62,13 +71,18 @@ class LLM:
             resp = self.client.chat.completions.create(
                 model=self.model, max_tokens=max_tokens, temperature=0.2,
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                extra_body={"chat_template_kwargs": {"enable_thinking": THINKING}},
             )
-            text = resp.choices[0].message.content or ""
+            msg = resp.choices[0].message
+            self.last_finish = resp.choices[0].finish_reason
+            text = msg.content or ""
+            reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None) or ""
             tin = getattr(resp.usage, "prompt_tokens", None)
             tout = getattr(resp.usage, "completion_tokens", None)
         text = _THINK_RE.sub("", text).strip()  # drop reasoning traces if the model emits them
         self.ws.trace("llm_call", agent=agent, provider=self.provider, model=self.model,
-                      input_tokens=tin, output_tokens=tout)
+                      input_tokens=tin, output_tokens=tout, seconds=round(time.time() - t0, 1),
+                      finish=self.last_finish, empty=not text, reasoning_chars=len(locals().get("reasoning", "")))
         return text
 
 
