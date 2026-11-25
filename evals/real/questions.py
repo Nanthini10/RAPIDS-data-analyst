@@ -47,9 +47,9 @@ def q_tip_hour(df):
     d = df[(df["payment_type"] == 1) & (df["fare_amount"] > 0)].copy()
     d["tip_pct"] = d["tip_amount"] / d["fare_amount"] * 100
     d["hour"] = d["tpep_pickup_datetime"].dt.hour
-    by = d.groupby("hour")["tip_pct"].mean()
-    return [_num("overall mean tip %", d["tip_pct"].mean()), _num(f"tip % at best hour ({by.idxmax()}h)", by.max()),
-            _num(f"tip % at worst hour ({by.idxmin()}h)", by.min())]
+    by = d.groupby("hour")["tip_pct"].median()   # median: a few absurd tip/fare ratios wreck the mean (checked on real data)
+    return [_num("overall median tip %", d["tip_pct"].median()), _num(f"median tip % at best hour ({by.idxmax()}h)", by.max()),
+            _num(f"median tip % at worst hour ({by.idxmin()}h)", by.min())]
 
 
 def q_airport(df):
@@ -83,8 +83,8 @@ QUESTIONS = [
     Question("payment", "What share of all trips is paid by credit card (payment_type 1) and by cash (2), and what is the "
              "average fare_amount of credit-card vs cash trips (fares above 0 only)?",
              ["payment_type", "fare_amount"], q_payment),
-    Question("tip_hour", "Among credit-card trips with fare_amount above 0, what is the average tip as a percentage of "
-             "fare_amount, and which pickup hours of the day have the highest and lowest average tip percentage?",
+    Question("tip_hour", "Among credit-card trips with fare_amount above 0, what is the MEDIAN tip as a percentage of "
+             "fare_amount, and which pickup hours of the day have the highest and lowest median tip percentage?",
              ["payment_type", "fare_amount", "tip_amount", "tpep_pickup_datetime"], q_tip_hour),
     Question("airport", "Compare JFK-rate trips (RatecodeID 2) with standard-rate trips (RatecodeID 1): average fare_amount, "
              "average trip_distance and number of JFK trips (fare and distance above 0 only).",
