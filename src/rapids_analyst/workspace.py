@@ -25,7 +25,11 @@ class Workspace:
     def create(cls, base: Path, dataset: Path) -> "Workspace":
         run_id = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
         ws = cls(base / run_id)
-        shutil.copy(dataset, ws.input_dir / dataset.name)
+        dest = ws.input_dir / dataset.name
+        if dataset.stat().st_size > 200_000_000:  # big real-world files: link, don't copy per run
+            dest.symlink_to(dataset.resolve())
+        else:
+            shutil.copy(dataset, dest)
         return ws
 
     # -- paths ---------------------------------------------------------

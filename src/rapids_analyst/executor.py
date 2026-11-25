@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +19,8 @@ import pandas as pd
 warnings.filterwarnings("ignore")
 WS = os.environ["RA_WORKSPACE"]
 try:
+    if os.environ.get("RA_FORCE_PANDAS") == "1":  # benchmarking: run the same script on the CPU backend
+        raise ImportError("forced pandas")
     import cudf as xdf
     GPU = True
 except Exception:  # no GPU / RAPIDS not installed
@@ -46,11 +49,13 @@ class ExecResult:
     stderr: str
     script: Path
     used_gpu: bool | None = None
+    seconds: float = 0.0
 
 
 def run_python(code: str, script_path: Path, workspace_root: Path, timeout: int = 300) -> ExecResult:
     script_path.write_text(PRELUDE + "\n" + code)
     env = {**os.environ, "RA_WORKSPACE": str(workspace_root)}
+    t0 = time.perf_counter()
     try:
         proc = subprocess.run(
             [sys.executable, str(script_path)],
@@ -61,5 +66,6 @@ def run_python(code: str, script_path: Path, workspace_root: Path, timeout: int 
             timeout=timeout,
         )
     except subprocess.TimeoutExpired as e:
-        return ExecResult(False, e.stdout or "", f"Timed out after {timeout}s", script_path)
-    return ExecResult(proc.returncode == 0, proc.stdout[-4000:], proc.stderr[-4000:], script_path)
+        return ExecResult(False, e.stdout or "", f"Timed out after {timeout}s", script_path, seconds=time.perf_counter() - t0)
+    return ExecResult(proc.returncode == 0, proc.stdout[-4000:], proc.stderr[-4000:], script_path,
+                      seconds=time.perf_counter() - t0)

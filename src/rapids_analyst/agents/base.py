@@ -61,7 +61,7 @@ class CodeAgent:
             res = run_python(code, self.ws.next_step_path(self.name), self.ws.root, self.timeout)
             self.ws.trace(
                 "exec", agent=self.name, attempt=attempt, ok=res.ok,
-                stderr=res.stderr[-500:], script=res.script.name,
+                stderr=res.stderr[-500:], script=res.script.name, seconds=round(res.seconds, 2),
             )
             if res.ok:
                 missing = [f for f in self.required_outputs() if not self.ws.exists(f)]

@@ -24,9 +24,10 @@ def _preview(path: Path, n: int = 6) -> str:
     if path.suffix.lower() in {".csv", ".tsv", ".txt"}:
         with open(path, errors="replace") as f:
             return "".join(f.readline() for _ in range(n))
-    import pandas as pd  # parquet etc.
+    import pyarrow.parquet as pq  # read one batch only: the file may have tens of millions of rows
 
-    return pd.read_parquet(path).head(n).to_csv(index=False)
+    batch = next(pq.ParquetFile(path).iter_batches(batch_size=n))
+    return batch.to_pandas().to_csv(index=False)
 
 
 def stat_gate(finding: dict, c: Critique) -> str | None:

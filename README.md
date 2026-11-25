@@ -89,6 +89,24 @@ come from findings the scorer cannot check (a range quoted without group sizes; 
 missing from the reference table), not from confirmed wrong numbers. Three seeds is a small sample, and these
 runs used no GPU, so the cuDF path and speedup benchmark are not yet measured.
 
+## Real-data evaluation (NYC taxi)
+
+The synthetic eval proves the plumbing; this harness tests usefulness on a real public dataset
+(NYC TLC yellow-taxi trips, 2023; about 3M rows per month, 38M for a year). Five questions each have an answer
+key computed by independent pandas ([evals/real/questions.py](evals/real/questions.py)); one is a trap (passenger
+count vs tipping: huge n makes any gap "significant", but it is practically negligible). The data is not cleaned
+for the system. The crew is compared with a **single-shot baseline** (one prompt, one script, same model and
+retries) to show what the extra stages actually buy.
+
+```bash
+python -m evals.real.run_real --months 1                        # smoke test, any machine
+python -m evals.real.run_real --months 12 --compare-backends    # scale test on a GPU box
+```
+
+It reports per system: answer-key score, fully-correct questions, completion rate, tokens, wall time and compute
+time of the generated code. `--compare-backends` re-runs each crew `analysis.py` on cuDF and again forced onto
+pandas (`RA_FORCE_PANDAS=1`) and records the speedup. Results go to `evals/results/real_latest.json`.
+
 ## Tests
 
 ```bash
