@@ -67,12 +67,15 @@ def time_backends(run_dir: Path) -> dict | None:
 
 def run_system(system: str, q, dataset: Path, out: Path, model, key: list[dict], compare: bool) -> dict:
     from rapids_analyst.orchestrator import PipelineError, run_pipeline
+    from rapids_analyst.workspace import Workspace
     from .baseline import run_baseline
 
     err, run_dir = None, None
     try:
         if system == "crew":
-            ws = run_pipeline(dataset, q.text, out / "runs", model)
+            ws = Workspace.create(out / "runs", dataset)   # created here so a crash still leaves a run_dir to inspect
+            run_dir = ws.root
+            run_pipeline(dataset, q.text, out / "runs", model, ws=ws)
         else:
             ws = run_baseline(dataset, q.text, out / "runs", model)
         run_dir = ws.root

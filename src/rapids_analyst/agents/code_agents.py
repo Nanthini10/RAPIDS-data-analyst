@@ -34,6 +34,8 @@ def snapshot_schema(df) -> dict:
         if s.dtype == object or str(s.dtype) in ("string", "bool"):
             if info["n_unique"] <= 30:
                 info["levels"] = {str(k): int(v) for k, v in s.value_counts(dropna=False).items()}
+        elif str(s.dtype).startswith("datetime"):
+            info.update(min=str(s.min()), max=str(s.max()))
         else:
             info.update(min=float(s.min()), max=float(s.max()), mean=round(float(s.mean()), 4))
         cols.append(info)

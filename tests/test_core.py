@@ -169,3 +169,12 @@ def test_gate_rejects_negligible_effect_size():
     assert "negligible" in stat_gate({"kind": "effect"}, c)
     c2 = Critique(id="a", verdict="pass", reason="", p_value=0.001, min_group_n=428, effect_size=0.3)
     assert stat_gate({"kind": "effect"}, c2) is None
+
+
+def test_snapshot_schema_handles_datetime_columns():
+    import pandas as pd
+    from rapids_analyst.agents.code_agents import snapshot_schema
+
+    df = pd.DataFrame({"t": pd.to_datetime(["2023-01-01", "2023-02-01"]), "x": [1.0, 2.0]})
+    col = next(c for c in snapshot_schema(df)["columns"] if c["name"] == "t")
+    assert col["min"].startswith("2023-01-01")
