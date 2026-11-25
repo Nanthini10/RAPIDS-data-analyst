@@ -36,6 +36,9 @@ class CodeAgent:
         """Return an error message if outputs are malformed, else None."""
         return None
 
+    def finalize(self) -> None:
+        """Deterministic post-processing of a successful attempt (runs in code, not by the model)."""
+
     # -- main loop -----------------------------------------------------
     def run(self, ctx: dict | None = None) -> bool:
         ctx = ctx or {}
@@ -69,6 +72,7 @@ class CodeAgent:
                 if bad:
                     error = f"Output validation failed: {bad}"
                     continue
+                self.finalize()
                 self.ledger.append(res.script)
                 if self.ws.exists("_no_gpu"):
                     self.ws.record_fallback(self.name, "cuDF unavailable; executed on pandas")

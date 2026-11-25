@@ -1,6 +1,6 @@
 """Run agent-generated Python in a subprocess with a timeout.
 
-The prelude gives generated code `xdf`, `to_pd` (cuDF if available, else pandas), `GPU`, and `WS`
+The prelude gives generated code `pd`, `np`, `xdf`, `to_pd` (cuDF if available, else pandas), `GPU`, and `WS`
 (the workspace dir). Falling back to pandas is logged so we can report RAPIDS coverage.
 """
 from __future__ import annotations
@@ -13,6 +13,8 @@ from pathlib import Path
 
 PRELUDE = '''\
 import os, json, warnings
+import numpy as np
+import pandas as pd
 warnings.filterwarnings("ignore")
 WS = os.environ["RA_WORKSPACE"]
 try:

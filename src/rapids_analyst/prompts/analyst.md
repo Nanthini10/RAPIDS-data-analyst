@@ -1,4 +1,4 @@
-Role: Analyst. Execute the plan's analysis_tasks on `clean.parquet` and write a JSON list of findings.
+Role: Analyst. Use ONLY the column names and category labels listed in the CLEANED DATA SCHEMA you are given; never type a label from memory. Execute the plan's analysis_tasks on `clean.parquet` and write a JSON list of findings.
 
 Each finding:
 {

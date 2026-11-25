@@ -25,8 +25,35 @@ class Profiler(CodeAgent):
         )
 
 
+def snapshot_schema(df) -> dict:
+    """Authoritative description of the CLEANED table: exact column names, dtypes and category labels."""
+    cols = []
+    for c in df.columns:
+        s = df[c]
+        info = {"name": c, "dtype": str(s.dtype), "null_frac": round(float(s.isna().mean()), 4), "n_unique": int(s.nunique())}
+        if s.dtype == object or str(s.dtype) in ("string", "bool"):
+            if info["n_unique"] <= 30:
+                info["levels"] = {str(k): int(v) for k, v in s.value_counts(dropna=False).items()}
+        else:
+            info.update(min=float(s.min()), max=float(s.max()), mean=round(float(s.mean()), 4))
+        cols.append(info)
+    return {"n_rows": int(len(df)), "columns": cols}
+
+
 class Cleaner(CodeAgent):
     name = "cleaner"
+
+    def finalize(self):
+        import pandas as pd
+
+        path = self.ws.path("clean.parquet")
+        df = pd.read_parquet(path)
+        cats = [c for c in df.columns if str(df[c].dtype) == "category"]
+        if cats:  # categorical dtype breaks later steps (cannot add new levels); plain strings are safer
+            for c in cats:
+                df[c] = df[c].astype(object)
+            df.to_parquet(path, index=False)
+        self.ws.write_json("clean_schema.json", snapshot_schema(df))
 
     def required_outputs(self):
         return ["clean.parquet", "transform_log.json"]
@@ -66,7 +93,8 @@ class Analyst(CodeAgent):
     def task(self, ctx):
         t = (
             f"Plan:\n{self.dump(self.ws.read_json('plan.json'))}\n"
-            f"Profile:\n{self.dump(self.ws.read_json('profile.json'), 3000)}\n"
+            f"CLEANED DATA SCHEMA (authoritative: use exactly these column names and category labels; "
+            f"clean.parquet is what you load):\n{self.dump(self.ws.read_json('clean_schema.json'), 4000)}\n"
             f"Transform log:\n{self.dump(self.ws.read_json('transform_log.json'), 2000)}\n\n"
         )
         if ctx.get("revise"):
@@ -121,6 +149,8 @@ class Critic(CodeAgent):
     def task(self, ctx):
         return (
             f"Plan:\n{self.dump(self.ws.read_json('plan.json'), 2000)}\n"
+            f"CLEANED DATA SCHEMA (authoritative column names and category labels):\n"
+            f"{self.dump(self.ws.read_json('clean_schema.json'), 3000)}\n"
             f"Findings to audit (id, claim, metric, value, n, and the Analyst's evidence_code):\n"
             f"{self.dump(self.ws.read_json('findings.json'), 12000)}\n\n"
             "In your script, load the findings yourself with json.load(open(os.path.join(WS, 'findings.json'))); "

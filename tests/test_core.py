@@ -137,3 +137,26 @@ def test_cpu_shim_makes_cudf_methods_work_on_pandas(tmp_path):
         ws.next_step_path("t"), ws.root,
     )
     assert res.ok, res.stderr
+
+
+def test_cleaner_finalize_normalises_categories_and_writes_schema(tmp_path):
+    import pandas as pd
+    from rapids_analyst.agents import Cleaner
+
+    ws = _ws(tmp_path)
+    df = pd.DataFrame({"contract": pd.Categorical(["Month-to-month", "Two year", "Two year"]), "tenure": [1, 2, 3]})
+    df.to_parquet(ws.path("clean.parquet"), index=False)
+    Cleaner(None, ws, []).finalize()
+    out = pd.read_parquet(ws.path("clean.parquet"))
+    assert str(out["contract"].dtype) == "object"
+    out["contract"] = out["contract"].fillna("missing")  # would raise on a Categorical
+    schema = ws.read_json("clean_schema.json")
+    contract = next(c for c in schema["columns"] if c["name"] == "contract")
+    assert contract["levels"] == {"Two year": 2, "Month-to-month": 1}
+    assert next(c for c in schema["columns"] if c["name"] == "tenure")["max"] == 3.0
+
+
+def test_prelude_provides_pd_and_np(tmp_path):
+    ws = _ws(tmp_path)
+    res = run_python("assert pd.__name__ == 'pandas' and np.__name__ == 'numpy'", ws.next_step_path("t"), ws.root)
+    assert res.ok, res.stderr
