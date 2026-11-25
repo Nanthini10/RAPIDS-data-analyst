@@ -74,7 +74,20 @@ python -m evals.bench_speedup --rows 10000000   # needs RAPIDS / a GPU
 | `verified_fraction` | Share of findings that survived the Critic |
 | speedup | cuDF vs pandas wall time on groupby, sort, describe, corr, merge |
 
-Results are written to `evals/results/` (git-ignored). Add your own measured numbers here once run.
+Results are written to `evals/results/` (git-ignored).
+
+**Measured** (Nemotron via NVIDIA NIM, pandas fallback on CPU, seeds 0-2, 20k rows each; numeric accuracy rescored with the final scorer):
+
+| Seed | insight_recall | trap_precision | verified_fraction | numeric_accuracy |
+|---|---|---|---|---|
+| 0 | 1.0 | 1.0 | 0.83 | 1.0 |
+| 1 | 1.0 | 1.0 | 0.83 | 0.8 |
+| 2 | 1.0 | 1.0 | 1.0 | 0.83 |
+
+Both planted drivers were found and both null traps reported as null on every seed. The two numeric misses
+come from findings the scorer cannot check (a range quoted without group sizes; contract x tenure subgroups
+missing from the reference table), not from confirmed wrong numbers. Three seeds is a small sample, and these
+runs used no GPU, so the cuDF path and speedup benchmark are not yet measured.
 
 ## Tests
 
