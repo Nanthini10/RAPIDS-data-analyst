@@ -1,3 +1,4 @@
+import pytest
 """Offline checks that the eval harness itself is sound."""
 import json
 
@@ -25,6 +26,8 @@ def test_quoted_pair_parsing():
     assert quoted_pairs("churn (0.330, n=10913)") == [(0.330, 10913)]
     assert quoted_pairs("churn 33.0% (n=10913)") == [(0.33, 10913)]
     assert quoted_pairs("correlation is -0.31") == []
+    assert quoted_pairs("0-12 mo churns at 43.5% (0-12 mo, n=3311) vs 7.1% (60+ mo, n=3287)") == [(pytest.approx(0.435), 3311), (pytest.approx(0.071), 3287)]
+    assert quoted_pairs("r=0.058, p=1.5e-16, n=20000; chi-square p = 0.4594. Female: 21.1% (n=10009)") == [(pytest.approx(0.211), 10009)]
 
 
 def _write(tmp_path, findings):

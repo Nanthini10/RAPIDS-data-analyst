@@ -25,7 +25,10 @@ RATE_TOL = 0.002
 SCALAR_REL_TOL = 0.01
 
 # "0.330, n=10913)", "0.424 (n=3,302)", "33.0% (n=10913)"
-_PAIR = re.compile(r"(\d+(?:\.\d+)?)(%?)\)?,?\s*\(?\s*n\s*=\s*([\d,]+)")
+# also "43.5% (0-12 mo, n=3311)": a short label may sit between the rate and n, but no "=" (so "r=0.06, p=1e-9, n=20000" is skipped)
+_PAIR = re.compile(r"(?<![\w.=\-])(\d+(?:\.\d+)?)(%?)(?:\s*\(\s*(?:[^=()]{0,25}?[,\s])?|\)?,\s*)n\s*=\s*([\d,]+)")
+# metrics that are test statistics, not rates/means: the scorer has no reference for them, so they are not scored
+_TEST_METRIC = re.compile(r"chi|p_value|p-value|cramer|interaction|anova|f_stat", re.I)
 # a claim that merely says "no effect" is CORRECT behaviour for a trap column
 _NEGATION = re.compile(
     r"\b(no|not|little|negligible|minimal|neither|insignificant|similar|nearly identical|almost identical|null)\b", re.I
@@ -57,11 +60,14 @@ def _scalar_ok(value: float, scalars: dict[str, float]) -> bool:
     return False
 
 
-def finding_numbers_correct(f: dict, groups, scalars) -> bool:
+def finding_numbers_correct(f: dict, groups, scalars) -> bool | None:
+    """True/False, or None when the finding quotes nothing the scorer can check."""
     pairs = quoted_pairs(f["claim"])
     if pairs:
         return all(_pair_ok(p, groups) for p in pairs)
-    return _scalar_ok(f["value"], scalars)
+    if _scalar_ok(f["value"], scalars):
+        return True
+    return None if _TEST_METRIC.search(f.get("metric", "")) else False
 
 
 def score_run(run_dir: Path, raw: pd.DataFrame) -> dict:
@@ -73,7 +79,9 @@ def score_run(run_dir: Path, raw: pd.DataFrame) -> dict:
     false_driver = {
         t: any(not _NEGATION.search(f["claim"]) for f in verified if _mentions(f["claim"], t)) for t in NULL_TRAPS
     }
-    ok = [finding_numbers_correct(f, groups, scalars) for f in verified]
+    checks = [finding_numbers_correct(f, groups, scalars) for f in verified]
+    scored = [(f, c) for f, c in zip(verified, checks) if c is not None]
+    ok = [c for _, c in scored]
 
     return {
         "n_findings": len(findings),
@@ -84,5 +92,5 @@ def score_run(run_dir: Path, raw: pd.DataFrame) -> dict:
         "traps_misreported": false_driver,
         "trap_precision": 1 - sum(false_driver.values()) / len(NULL_TRAPS),
         "numeric_accuracy": sum(ok) / len(ok) if ok else 0.0,
-        "incorrect_numbers": [f["id"] for f, g in zip(verified, ok) if not g],
+        "incorrect_numbers": [f["id"] for f, g in scored if not g],
     }
