@@ -11,6 +11,7 @@ from .workspace import Workspace
 MAX_REVISIONS = 2
 ALPHA = 0.05
 MIN_GROUP_N = 30
+MIN_EFFECT = 0.05   # standardised effect size below this is negligible even if p < ALPHA
 
 
 class PipelineError(RuntimeError):
@@ -44,6 +45,9 @@ def stat_gate(finding: dict, c: Critique) -> str | None:
         return (f"claims an effect but the omnibus test gives p={c.p_value:.3g} (> {ALPHA}). "
                 "Either reframe it as a null result (kind='null'; say no reliable difference was found) or drop it. "
                 "Do not cherry-pick the best and worst group.")
+    if kind == "effect" and c.effect_size is not None and abs(c.effect_size) < MIN_EFFECT:
+        return (f"the standardised effect size is {abs(c.effect_size):.3f} (< {MIN_EFFECT}): statistically detectable but "
+                "negligible in practice. Reframe it as a null/negligible result (kind='null') or drop it.")
     if kind == "null" and c.p_value <= ALPHA:
         return f"claims no effect but the test gives p={c.p_value:.3g} (<= {ALPHA}); an effect is present"
     return None

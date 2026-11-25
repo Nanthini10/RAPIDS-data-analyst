@@ -13,9 +13,9 @@ Statistics (required for every finding whose kind is not "descriptive"): run you
 - rates across 2+ groups: chi-square test of independence on the group x outcome table (scipy.stats.chi2_contingency); use the OMNIBUS test over all groups, never best-vs-worst.
 - means across groups: Welch t-test (2 groups) or one-way ANOVA (3+).
 - two numeric variables: Pearson correlation test (scipy.stats.pearsonr).
-Also record `min_group_n`: the row count of the smallest group involved. The pipeline applies the pass/fail rule on p and n itself; your job is to report them accurately.
+Also record `effect_size`, standardised: Cramer's V for rates/categorical comparisons, |r| for correlations, |Cohen's d| for mean comparisons (for 3+ group means use eta = sqrt(SSB/SST)). Also record `min_group_n`: the row count of the smallest group involved. The pipeline applies the pass/fail rule on p, n and effect size itself; your job is to report them accurately.
 
 Write `critique.json` to WS: a list with one entry per finding id:
-{"id": str, "verdict": "pass" | "fail", "reason": "one sentence", "recomputed_value": float | null, "p_value": float | null, "min_group_n": int | null}
+{"id": str, "verdict": "pass" | "fail", "reason": "one sentence", "recomputed_value": float | null, "p_value": float | null, "min_group_n": int | null, "effect_size": float | null}
 
 A finding whose group has under ~30 rows, whose causal wording is unsupported, or whose pattern is explained by an artefact (e.g. a 'missing' category driving a regional gap) should fail or be flagged. Fail a finding only for a concrete defect, and say exactly what is wrong so the Analyst can fix it.

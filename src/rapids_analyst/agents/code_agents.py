@@ -49,9 +49,12 @@ class Cleaner(CodeAgent):
         path = self.ws.path("clean.parquet")
         df = pd.read_parquet(path)
         cats = [c for c in df.columns if str(df[c].dtype) == "category"]
-        if cats:  # categorical dtype breaks later steps (cannot add new levels); plain strings are safer
-            for c in cats:
-                df[c] = df[c].astype(object)
+        for c in cats:  # categorical dtype breaks later steps (cannot add new levels); plain strings are safer
+            df[c] = df[c].astype(object)
+        texts = [c for c in df.columns if df[c].dtype == object]
+        for c in texts:  # no NaN in text columns: downstream labels would print as "nan"
+            df[c] = df[c].fillna("missing")
+        if cats or texts:
             df.to_parquet(path, index=False)
         self.ws.write_json("clean_schema.json", snapshot_schema(df))
 
@@ -140,9 +143,9 @@ class Critic(CodeAgent):
         if want - have:
             return f"critique.json is missing findings: {sorted(want - have)}"
         kinds = {f["id"]: f.get("kind", "effect") for f in self.ws.read_json("findings.json")}
-        lacking = [c.id for c in crit if kinds.get(c.id) != "descriptive" and c.p_value is None]
+        lacking = [c.id for c in crit if kinds.get(c.id) != "descriptive" and (c.p_value is None or c.effect_size is None)]
         if lacking:
-            return (f"p_value (and min_group_n) are required for every non-descriptive finding; missing for {lacking}. "
+            return (f"p_value, min_group_n and effect_size are required for every non-descriptive finding; missing for {lacking}. "
                     "Compute a chi-square test for rate comparisons across groups, Welch t-test for mean "
                     "comparisons, or a Pearson correlation test.")
 

@@ -122,7 +122,7 @@ def test_critic_requires_p_values(tmp_path):
     ws.write_json("findings.json", [{"id": "a", "kind": "effect"}, {"id": "b", "kind": "descriptive"}])
     ws.write_json("critique.json", [{"id": "a", "verdict": "pass", "reason": ""}, {"id": "b", "verdict": "pass", "reason": ""}])
     assert "p_value" in Critic(None, ws, []).validate()
-    ws.write_json("critique.json", [{"id": "a", "verdict": "pass", "reason": "", "p_value": 0.01, "min_group_n": 50},
+    ws.write_json("critique.json", [{"id": "a", "verdict": "pass", "reason": "", "p_value": 0.01, "min_group_n": 50, "effect_size": 0.3},
                                     {"id": "b", "verdict": "pass", "reason": ""}])
     assert Critic(None, ws, []).validate() is None
 
@@ -160,3 +160,12 @@ def test_prelude_provides_pd_and_np(tmp_path):
     ws = _ws(tmp_path)
     res = run_python("assert pd.__name__ == 'pandas' and np.__name__ == 'numpy'", ws.next_step_path("t"), ws.root)
     assert res.ok, res.stderr
+
+
+def test_gate_rejects_negligible_effect_size():
+    from rapids_analyst.orchestrator import stat_gate
+
+    c = Critique(id="a", verdict="pass", reason="", p_value=0.043, min_group_n=428, effect_size=0.022)
+    assert "negligible" in stat_gate({"kind": "effect"}, c)
+    c2 = Critique(id="a", verdict="pass", reason="", p_value=0.001, min_group_n=428, effect_size=0.3)
+    assert stat_gate({"kind": "effect"}, c2) is None

@@ -35,3 +35,4 @@ class Critique(BaseModel):
     recomputed_value: Optional[float] = None
     p_value: Optional[float] = None       # Critic's own significance test (omnibus for >2 groups)
     min_group_n: Optional[int] = None     # size of the smallest group in the comparison
+    effect_size: Optional[float] = None   # standardised: Cramer's V (categorical), |r| (correlation), |d| (means)
